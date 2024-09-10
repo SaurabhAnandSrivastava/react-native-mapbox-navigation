@@ -7,8 +7,6 @@ import com.facebook.react.common.MapBuilder
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.annotations.ReactProp
 import com.mapbox.geojson.Point
-import android.util.Log
-import android.widget.Toast
 import com.mapbox.navigation.base.internal.utils.WaypointFactory
 
 @ReactModule(name = MapboxNavigationViewManager.NAME)
@@ -38,7 +36,6 @@ class MapboxNavigationViewManager(private var reactContext: ReactApplicationCont
 
   @ReactProp(name = "startOrigin")
   override fun setStartOrigin(view: MapboxNavigationView?, value: ReadableArray?) {
-//    Log.e("startOrigin","startOrigin data called=> $value")
     if (value == null) {
       view?.setStartOrigin(null)
       return
@@ -74,15 +71,6 @@ class MapboxNavigationViewManager(private var reactContext: ReactApplicationCont
     view?.setWaypoints(waypoints)
   }
 
-  @ReactProp(name = "stops")
-  override fun setStops(view: MapboxNavigationView?, value: ReadableArray?) {
-//    Toast.makeText(view!!.context,"stops data called",Toast.LENGTH_SHORT).show()
-
-    view?.setStops(value)
-
-//    Log.e("Stops","stops data called=> $value")
-  }
-
   @ReactProp(name = "language")
   override fun setLocal(view: MapboxNavigationView?, language: String?) {
     if (language !== null) {
@@ -101,11 +89,7 @@ class MapboxNavigationViewManager(private var reactContext: ReactApplicationCont
     view?.setMute(value)
   }
 
-
-
   companion object {
     const val NAME = "MapboxNavigationView"
   }
-
-
 }

@@ -41,9 +41,9 @@ export interface MapboxNavigationProps {
   style?: StyleProp<ViewStyle>;
   mute?: boolean;
   showCancelButton?: boolean;
-  startOrigin?: Coordinate;
+  startOrigin: Coordinate;
   waypoints?: Coordinate[];
-  destination?: Coordinate;
+  destination: Coordinate;
   language?: Language;
   /**
    * [iOS only]
