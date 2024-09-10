@@ -22,6 +22,17 @@ RCT_CUSTOM_VIEW_PROPERTY(waypoints, NSArray, NSObject)
     MapboxCoordinateArray *coordinates = [RCTConvert MapboxCoordinateArray:json];
     [self performSelector:@selector(setWaypoints:coordinates:) withObject:view withObject:coordinates];
 }
+
+RCT_CUSTOM_VIEW_PROPERTY(stops, NSArray, NSObject)
+{
+    
+    // Pass the NSArray (which is coming from React Native) directly to the Swift method
+    [self performSelector:@selector(setStops:stopsArray:) withObject:view withObject:json];
+}
+
+
+
+
 RCT_EXPORT_VIEW_PROPERTY(destination, NSArray)
 RCT_EXPORT_VIEW_PROPERTY(shouldSimulateRoute, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showsEndOfRouteFeedback, BOOL)

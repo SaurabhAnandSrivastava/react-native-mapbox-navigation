@@ -87,11 +87,6 @@ NavigationMapViewDelegate{
     @objc var vehicleMaxHeight: NSNumber?
     @objc var vehicleMaxWidth: NSNumber?
     
-    @objc var previewWidth: NSNumber = 100
-    @objc var previewHeight: NSNumber = 100
-    @objc var isPreview: Bool = false
-    
-    
     override init(frame: CGRect) {
         self.embedded = false
         self.embedding = false
@@ -122,116 +117,103 @@ NavigationMapViewDelegate{
         guard startOrigin.count == 2 && destination.count == 2 else { return }
         
         embedding = true
-        if isPreview {
-            print("Height \(self.previewHeight)")
-            print("Width \(self.previewWidth)")
-            self.backgroundColor = .red
+        
+        let originWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: startOrigin[1] as! CLLocationDegrees, longitude: startOrigin[0] as! CLLocationDegrees))
+        var waypointsArray = [Waypoint]()
+        
+        //        if startOrigin.count == 2 {
+        waypointsArray.append(originWaypoint)
+        //        }
+        
+        // Add Waypoints
+        //waypointsArray.append(contentsOf: waypoints)
+        
+        for item in stops {
             
-           
+            
+            if let cor = item["coordinates"] as? [Double] {
+                if cor.count  == 2 {
+                    
+                    let point = CLLocationCoordinate2D(latitude:cor[1] , longitude: cor[0])
+                    
+                    let wPoint = Waypoint(coordinate: point, name: (item["name"] as! String))
+                    waypointsArray.append(wPoint)
+                    
+                    
+                    
+                    
+                }
+                
+            } else {
+                print("coordinates not found or invalid format")
+            }
+            
+            
             
         }
-        else {
+        
+        
+        
+        
+        
+        
+        let destinationWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: destination[1] as! CLLocationDegrees, longitude: destination[0] as! CLLocationDegrees))
+        waypointsArray.append(destinationWaypoint)
+        
+        
+        
+        
+        let options = NavigationRouteOptions(waypoints: waypointsArray, profileIdentifier: .automobileAvoidingTraffic)
+        options.includesAlternativeRoutes = false
+        
+        let locale = "en"
+        options.locale = Locale(identifier: locale)
+        
+        
+        
+        Directions.shared.calculateRoutes(options: options) { [weak self] result in
+            guard let strongSelf = self, let parentVC = strongSelf.parentViewController else {
+                return
+            }
             
-            
-            
-            
-            let originWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: startOrigin[1] as! CLLocationDegrees, longitude: startOrigin[0] as! CLLocationDegrees))
-            var waypointsArray = [Waypoint]()
-            
-            //        if startOrigin.count == 2 {
-            waypointsArray.append(originWaypoint)
-            //        }
-            
-            // Add Waypoints
-            //waypointsArray.append(contentsOf: waypoints)
-            
-            for item in stops {
+            switch result {
+            case .failure(let error):
+                strongSelf.onError!(["message": error.localizedDescription])
+            case .success(let response):
                 
                 
-                if let cor = item["coordinates"] as? [Double] {
-                    if cor.count  == 2 {
-                        
-                        let point = CLLocationCoordinate2D(latitude:cor[1] , longitude: cor[0])
-                        
-                        let wPoint = Waypoint(coordinate: point, name: (item["name"] as! String))
-                        waypointsArray.append(wPoint)
-                        
-                        
-                        
-                        
-                    }
-                    
-                } else {
-                    print("coordinates not found or invalid format")
-                }
+                let navigationOptions = NavigationOptions(simulationMode:  .never)
+                let vc = NavigationViewController(for: response, navigationOptions: navigationOptions)
+                
+                vc.showsEndOfRouteFeedback = strongSelf.showsEndOfRouteFeedback
+                StatusView.appearance().isHidden = false
+                
+                NavigationSettings.shared.voiceMuted = strongSelf.mute;
+                
+                
+                vc.delegate = strongSelf
+                self!.navViewController = vc
+                
+                
+                
+                
+                
+                parentVC.addChild(vc)
+                strongSelf.addSubview(vc.view)
+                vc.view.frame = strongSelf.bounds
+                vc.didMove(toParent: parentVC)
+                strongSelf.navViewController = vc
+                vc.navigationMapView?.delegate = self
+                
+                
+                
                 
                 
                 
             }
             
-            
-            
-            
-            
-            
-            let destinationWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: destination[1] as! CLLocationDegrees, longitude: destination[0] as! CLLocationDegrees))
-            waypointsArray.append(destinationWaypoint)
-            
-            
-            
-            
-            let options = NavigationRouteOptions(waypoints: waypointsArray, profileIdentifier: .automobileAvoidingTraffic)
-            options.includesAlternativeRoutes = false
-            
-            let locale = "en"
-            options.locale = Locale(identifier: locale)
-            
-            
-            
-            Directions.shared.calculateRoutes(options: options) { [weak self] result in
-                guard let strongSelf = self, let parentVC = strongSelf.parentViewController else {
-                    return
-                }
-                
-                switch result {
-                case .failure(let error):
-                    strongSelf.onError!(["message": error.localizedDescription])
-                case .success(let response):
-                    
-                    
-                    let navigationOptions = NavigationOptions(simulationMode:  .never)
-                    let vc = NavigationViewController(for: response, navigationOptions: navigationOptions)
-                    
-                    vc.showsEndOfRouteFeedback = strongSelf.showsEndOfRouteFeedback
-                    StatusView.appearance().isHidden = false
-                    
-                    NavigationSettings.shared.voiceMuted = strongSelf.mute;
-                    
-                    
-                    vc.delegate = strongSelf
-                    self!.navViewController = vc
-                    
-                    
-                    
-                    
-                    
-                    parentVC.addChild(vc)
-                    strongSelf.addSubview(vc.view)
-                    vc.view.frame = strongSelf.bounds
-                    vc.didMove(toParent: parentVC)
-                    strongSelf.navViewController = vc
-                    vc.navigationMapView?.delegate = self
-                    
-                    
-                    
-                    
-                    
-                    
-                }
-                
-                strongSelf.embedding = false
-                strongSelf.embedded = true
-            }
+            strongSelf.embedding = false
+            strongSelf.embedded = true
         }
     }
     

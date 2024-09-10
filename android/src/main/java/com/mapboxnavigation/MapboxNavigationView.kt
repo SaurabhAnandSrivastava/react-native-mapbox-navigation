@@ -6,8 +6,14 @@ import android.content.res.Resources
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import java.util.Arrays
 import android.widget.FrameLayout
+import android.widget.TextView
 import android.widget.Toast
+import com.facebook.react.bridge.ReadableArray
+import com.facebook.react.common.MapBuilder
+import com.mapbox.maps.ViewAnnotationOptions
+import com.mapbox.maps.viewannotation.geometry
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.events.RCTEventEmitter
@@ -78,6 +84,13 @@ import com.mapbox.navigation.voice.model.SpeechError
 import com.mapbox.navigation.voice.model.SpeechValue
 import com.mapbox.navigation.voice.model.SpeechVolume
 import com.mapboxnavigation.databinding.NavigationViewBinding
+import com.mapboxnavigation.databinding.WayPointViewBinding
+import com.mapbox.maps.ViewAnnotationAnchor
+import com.mapbox.maps.viewannotation.annotationAnchor
+
+
+
+
 import java.util.Locale
 
 @SuppressLint("ViewConstructor")
@@ -88,7 +101,9 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
 
   private var origin: Point? = null
   private var destination: Point? = null
-  private var waypoints: List<Point> = listOf()
+  private var waypoints = mutableListOf<Point>()
+  private var names = mutableListOf<String>()
+  private var indices = mutableListOf<Int>()
   private var locale = Locale.getDefault()
 
   /**
@@ -437,6 +452,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
    * - driver got off route and a reroute was executed
    */
   private val routesObserver = RoutesObserver { routeUpdateResult ->
+  
     if (routeUpdateResult.navigationRoutes.isNotEmpty()) {
       // generate route geometries asynchronously and render them
       routeLineApi.setNavigationRoutes(
@@ -646,13 +662,16 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     layout(left, top, right, bottom)
   }
 
-  private fun findRoute(coordinates: List<Point>) {
+  private fun findRoute(coordinates: List<Point>,indices: List<Int>,names: List<String>) {
     mapboxNavigation.requestRoutes(
       RouteOptions.builder()
         .applyDefaultNavigationOptions()
         .applyLanguageAndVoiceUnitOptions(context)
         .coordinatesList(coordinates)
+        .waypointIndicesList(indices)
+        .waypointNamesList(names)
         .language(locale.language)
+        .alternatives(false)
         .build(),
       object : NavigationRouterCallback {
         override fun onCanceled(routeOptions: RouteOptions, @RouterOrigin routerOrigin: String) {
@@ -678,6 +697,40 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     // set routes, where the first route in the list is the primary route that
     // will be used for active guidance
     mapboxNavigation.setNavigationRoutes(routes)
+    mapboxNavigation.setRerouteEnabled(false)
+
+    waypoints.forEachIndexed { index, point ->
+
+      // Create a TextView to be used as the annotation view
+
+      if(index!=0 && index!=waypoints.size-1){
+        val waypointView = WayPointViewBinding.inflate(LayoutInflater.from(context), this, false)
+
+        waypointView.apply {
+          indexWay.text = (indices[index]).toString() // Show the number as text
+          nameWay.text = names[index].toString()
+        }
+
+        var lp = FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+        waypointView.root.layoutParams = lp
+
+        // Define options for the View Annotation
+        val viewAnnotationOptions = ViewAnnotationOptions.Builder()
+          .geometry(point)
+          .allowOverlap(false)
+          .visible(true)
+          .annotationAnchor {
+            anchor(ViewAnnotationAnchor.CENTER)
+          }
+          .build()
+
+        // Add the view annotation to the map
+        binding.mapView.viewAnnotationManager.addViewAnnotation(
+          waypointView.root,
+          viewAnnotationOptions
+        )
+      }
+    }
 
     // show UI elements
     binding.soundButton.visibility = View.VISIBLE
@@ -691,18 +744,45 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
 
   private fun startRoute() {
     // register event listeners
+//    mapboxNavigation.setRerouteController(null)
     mapboxNavigation.registerRoutesObserver(routesObserver)
     mapboxNavigation.registerArrivalObserver(arrivalObserver)
     mapboxNavigation.registerRouteProgressObserver(routeProgressObserver)
     mapboxNavigation.registerLocationObserver(locationObserver)
     mapboxNavigation.registerVoiceInstructionsObserver(voiceInstructionsObserver)
-
+    mapboxNavigation.setRerouteEnabled(false)
     // Create a list of coordinates that includes origin, destination
+
+    var tempArray = ArrayList<String>()
+    var tempArrayIndex = ArrayList<Int>()
+
+    //for source
+
+
+
     val coordinatesList = mutableListOf<Point>()
-    this.origin?.let { coordinatesList.add(it) }
-    this.waypoints.let { coordinatesList.addAll(waypoints) }
-    this.destination?.let { coordinatesList.add(it) }
-    findRoute(coordinatesList)
+    this.origin?.let {
+      names.add(0,"")
+      indices.add(0,0)
+      coordinatesList.add(it)
+    }
+    this.waypoints.let {
+      coordinatesList.addAll(waypoints)
+    }
+    this.destination?.let {
+      names.add("")
+      indices.add(indices.size)
+      coordinatesList.add(it)
+    }
+
+//    coordinatesList.forEachIndexed { index, s ->
+//      tempArrayIndex.add(index)
+//      tempArray.add("name=> $index")
+//    }
+//    this.names = tempArray
+//    this.indices = tempArrayIndex
+
+    findRoute(coordinatesList,this.indices,this.names)
   }
 
   override fun onDetachedFromWindow() {
@@ -737,14 +817,37 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
 
   fun setStartOrigin(origin: Point?) {
     this.origin = origin
+//    this.waypoints.add(destination!!)
   }
 
   fun setDestination(destination: Point?) {
     this.destination = destination
+//    this.waypoints.add(destination!!)
   }
 
   fun setWaypoints(waypoints: List<Point>) {
-    this.waypoints = waypoints
+    this.waypoints.addAll(waypoints)
+
+  }
+
+  fun setStops(value: ReadableArray?){
+
+    if(value!=null) {
+      val stops: List<Point> = value!!.toArrayList().mapNotNull { item ->
+        val map = item as? Map<*, *>
+        val coordinate = map?.get("coordinates") as ArrayList<Double>
+        val latitude = coordinate[1]
+        val longitude = coordinate[0]
+        names.add(map?.get("name") as String)
+        indices.add(indices.size + 1)
+        if (latitude != null && longitude != null) {
+          Point.fromLngLat(longitude, latitude)
+        } else {
+          null
+        }
+      }
+      this.waypoints.addAll(stops)
+    }
   }
 
   fun setLocal(language: String) {
