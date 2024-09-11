@@ -6,8 +6,14 @@ import android.content.res.Resources
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import java.util.Arrays
 import android.widget.FrameLayout
+import android.widget.TextView
 import android.widget.Toast
+import com.facebook.react.bridge.ReadableArray
+import com.facebook.react.common.MapBuilder
+import com.mapbox.maps.ViewAnnotationOptions
+import com.mapbox.maps.viewannotation.geometry
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.events.RCTEventEmitter
@@ -78,6 +84,14 @@ import com.mapbox.navigation.voice.model.SpeechError
 import com.mapbox.navigation.voice.model.SpeechValue
 import com.mapbox.navigation.voice.model.SpeechVolume
 import com.mapboxnavigation.databinding.NavigationViewBinding
+import com.mapboxnavigation.databinding.WayPointViewBinding
+import com.mapboxnavigation.databinding.WayPointPreviewBinding
+import com.mapbox.maps.ViewAnnotationAnchor
+import com.mapbox.maps.viewannotation.annotationAnchor
+import com.mapbox.maps.CameraOptions
+import com.mapbox.maps.plugin.animation.MapAnimationOptions
+import com.mapbox.maps.plugin.animation.camera
+
 import java.util.Locale
 
 @SuppressLint("ViewConstructor")
@@ -88,8 +102,12 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
 
   private var origin: Point? = null
   private var destination: Point? = null
-  private var waypoints: List<Point> = listOf()
+  private var waypoints = mutableListOf<Point>()
+  val coordinatesList = mutableListOf<Point>()
+  private var names = mutableListOf<String>()
+  private var indices = mutableListOf<Int>()
   private var locale = Locale.getDefault()
+  private var isPreview = false
 
   /**
    * Bindings to the example layout.
@@ -366,6 +384,9 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
    * Gets notified with progress along the currently active route.
    */
   private val routeProgressObserver = RouteProgressObserver { routeProgress ->
+
+    if(isPreview)
+      return@RouteProgressObserver
     // update the camera position to account for the progressed fragment of the route
     viewportDataSource.onRouteProgressChanged(routeProgress)
     viewportDataSource.evaluate()
@@ -437,6 +458,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
    * - driver got off route and a reroute was executed
    */
   private val routesObserver = RoutesObserver { routeUpdateResult ->
+  
     if (routeUpdateResult.navigationRoutes.isNotEmpty()) {
       // generate route geometries asynchronously and render them
       routeLineApi.setNavigationRoutes(
@@ -501,7 +523,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
 
         NavigationCameraState.TRANSITION_TO_OVERVIEW,
         NavigationCameraState.OVERVIEW,
-        NavigationCameraState.IDLE -> binding.recenter.visibility = View.VISIBLE
+        NavigationCameraState.IDLE -> binding.recenter.visibility = if(!isPreview) View.VISIBLE else View.INVISIBLE
       }
     }
     // set the padding values depending on screen orientation and visible view layout
@@ -587,6 +609,18 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
       binding.soundButton.unmute()
       voiceInstructionsPlayer?.volume(SpeechVolume(1f))
     }
+
+    if(isPreview){
+      binding.apply{
+        recenter.visibility = View.GONE
+        routeOverview.visibility = View.GONE
+        soundButton.visibility = View.GONE
+        maneuverView.visibility = View.GONE
+        tripProgressCard.visibility = View.GONE
+      }
+    }
+
+
   }
 
   private fun onDestroy() {
@@ -646,13 +680,28 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     layout(left, top, right, bottom)
   }
 
-  private fun findRoute(coordinates: List<Point>) {
+//  fun setWidth(view: View, width: Int) {
+//    view.getLayoutParams().width = width
+//    view.requestLayout()
+//  }
+//
+//  // Expose the `height` property to React Native
+//  @ReactProp(name = "height")
+//  fun setHeight(view: View, height: Int) {
+//    view.getLayoutParams().height = height
+//    view.requestLayout()
+//  }
+
+  private fun findRoute(coordinates: List<Point>,indices: List<Int>,names: List<String>) {
     mapboxNavigation.requestRoutes(
       RouteOptions.builder()
         .applyDefaultNavigationOptions()
         .applyLanguageAndVoiceUnitOptions(context)
         .coordinatesList(coordinates)
+        .waypointIndicesList(indices)
+        .waypointNamesList(names)
         .language(locale.language)
+        .alternatives(false)
         .build(),
       object : NavigationRouterCallback {
         override fun onCanceled(routeOptions: RouteOptions, @RouterOrigin routerOrigin: String) {
@@ -668,6 +717,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
           @RouterOrigin routerOrigin: String
         ) {
           setRouteAndStartNavigation(routes)
+
         }
       }
     )
@@ -678,31 +728,109 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     // set routes, where the first route in the list is the primary route that
     // will be used for active guidance
     mapboxNavigation.setNavigationRoutes(routes)
+    mapboxNavigation.setRerouteEnabled(false)
 
-    // show UI elements
-    binding.soundButton.visibility = View.VISIBLE
-    binding.routeOverview.visibility = View.VISIBLE
-    binding.tripProgressCard.visibility = View.VISIBLE
+    coordinatesList.forEachIndexed { index, point ->
 
-    // move the camera to overview when new route is available
+      // Create a TextView to be used as the annotation view
+
+      if(index!=0 && index!=waypoints.size-1){
+        val waypointView =  WayPointViewBinding.inflate(LayoutInflater.from(context), this, false)
+
+        waypointView.apply {
+
+          indexWay.text = if(index==1){"Start Point"} else if(index==coordinatesList.size-1){"End Point"} else {(indices[index]-1).toString()}// Show the number as text
+//          nameWay.text = names[index].toString()
+        }
+
+        var lp = FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+        waypointView.root.layoutParams = lp
+
+        // Define options for the View Annotation
+        val viewAnnotationOptions = ViewAnnotationOptions.Builder()
+          .geometry(point)
+          .allowOverlap(false)
+          .visible(true)
+          .annotationAnchor {
+            anchor(ViewAnnotationAnchor.CENTER)
+          }
+          .build()
+
+        // Add the view annotation to the map
+        binding.mapView.viewAnnotationManager.addViewAnnotation(
+          waypointView.root,
+          viewAnnotationOptions
+        )
+      }
+    }
+
     navigationCamera.requestNavigationCameraToOverview()
-    mapboxNavigation.startTripSession(withForegroundService = true)
+    if(!isPreview) {
+      // show UI elements
+      binding.soundButton.visibility = View.VISIBLE
+      binding.routeOverview.visibility = View.VISIBLE
+      binding.tripProgressCard.visibility = View.VISIBLE
+
+      // move the camera to overview when new route is available
+      mapboxNavigation.startTripSession(withForegroundService = true)
+    }else{
+
+//      val mapAnimationOptions = MapAnimationOptions.Builder().duration(0).build()
+//      binding.mapView.camera.easeTo(
+//        CameraOptions.Builder()
+//          .zoom(10.0)
+//          .build(),
+//        mapAnimationOptions
+//      )
+
+    }
+
+
   }
 
   private fun startRoute() {
     // register event listeners
-    mapboxNavigation.registerRoutesObserver(routesObserver)
-    mapboxNavigation.registerArrivalObserver(arrivalObserver)
-    mapboxNavigation.registerRouteProgressObserver(routeProgressObserver)
+//    mapboxNavigation.setRerouteController(null)
     mapboxNavigation.registerLocationObserver(locationObserver)
-    mapboxNavigation.registerVoiceInstructionsObserver(voiceInstructionsObserver)
-
+      mapboxNavigation.registerRoutesObserver(routesObserver)
+    if(!isPreview) {
+      mapboxNavigation.registerArrivalObserver(arrivalObserver)
+      mapboxNavigation.registerRouteProgressObserver(routeProgressObserver)
+      mapboxNavigation.registerVoiceInstructionsObserver(voiceInstructionsObserver)
+      mapboxNavigation.setRerouteEnabled(false)
+    }
     // Create a list of coordinates that includes origin, destination
-    val coordinatesList = mutableListOf<Point>()
-    this.origin?.let { coordinatesList.add(it) }
-    this.waypoints.let { coordinatesList.addAll(waypoints) }
-    this.destination?.let { coordinatesList.add(it) }
-    findRoute(coordinatesList)
+
+//    var tempArray = ArrayList<String>()
+//    var tempArrayIndex = ArrayList<Int>()
+
+    //for source
+
+
+
+
+    this.origin?.let {
+      names.add(0,"")
+      indices.add(0,0)
+      coordinatesList.add(it)
+    }
+    this.waypoints.let {
+      coordinatesList.addAll(waypoints)
+    }
+    this.destination?.let {
+      names.add("")
+      indices.add(indices.size)
+      coordinatesList.add(it)
+    }
+
+//    coordinatesList.forEachIndexed { index, s ->
+//      tempArrayIndex.add(index)
+//      tempArray.add("name=> $index")
+//    }
+//    this.names = tempArray
+//    this.indices = tempArrayIndex
+
+    findRoute(coordinatesList,this.indices,this.names)
   }
 
   override fun onDetachedFromWindow() {
@@ -737,14 +865,48 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
 
   fun setStartOrigin(origin: Point?) {
     this.origin = origin
+//    this.waypoints.add(destination!!)
   }
 
   fun setDestination(destination: Point?) {
     this.destination = destination
+//    this.waypoints.add(destination!!)
   }
 
   fun setWaypoints(waypoints: List<Point>) {
-    this.waypoints = waypoints
+    this.waypoints.addAll(waypoints)
+
+  }
+
+  fun setStops(value: ReadableArray?){
+
+    if(value!=null) {
+      val stops: List<Point> = value!!.toArrayList().mapNotNull { item ->
+        val map = item as? Map<*, *>
+        val coordinate = map?.get("coordinates") as ArrayList<Double>
+        val latitude = coordinate[1]
+        val longitude = coordinate[0]
+        names.add(map?.get("name") as String)
+        indices.add(indices.size + 1)
+        if (latitude != null && longitude != null) {
+          Point.fromLngLat(longitude, latitude)
+        } else {
+          null
+        }
+      }
+      this.waypoints.addAll(stops)
+    }
+  }
+
+  fun setIsPreview(value: Boolean){
+    this.isPreview = value
+  }
+  fun setWaypointMarker(value: ReadableArray){
+    Toast.makeText(
+      context,
+      "image size => ${value.size()}",
+      Toast.LENGTH_SHORT
+    ).show()
   }
 
   fun setLocal(language: String) {
@@ -760,6 +922,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
   }
 
   fun setShowCancelButton(show: Boolean) {
+    if(!isPreview)
     binding.stop.visibility = if (show) View.VISIBLE else View.INVISIBLE
   }
 }

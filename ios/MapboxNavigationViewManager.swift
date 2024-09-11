@@ -23,4 +23,21 @@ class MapboxNavigationViewManager: RCTViewManager {
         let waypoints = coordinates.compactMap { $0.coordinate }
         currentView.setWaypoints(coordinates: waypoints)
     }
+    
+    
+    @objc(setStops:stopsArray:)
+    public func setStops(view: Any, stopsArray: [[String: Any]]) {
+        // Cast the view to MapboxNavigationView
+        guard let currentView = view as? MapboxNavigationView else {
+            return
+        }
+        
+        // Set the stops on the view
+        currentView.setStops(data:stopsArray)
+    }
+    
+  
+    
+    
 }
+
