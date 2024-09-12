@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import java.util.Arrays
+import androidx.appcompat.content.res.AppCompatResources
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -91,6 +92,13 @@ import com.mapbox.maps.viewannotation.annotationAnchor
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.plugin.animation.MapAnimationOptions
 import com.mapbox.maps.plugin.animation.camera
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
+import com.mapbox.maps.plugin.annotation.annotations
+import com.mapbox.maps.extension.style.layers.properties.generated.TextAnchor
+import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
+
+
+
 
 import java.util.Locale
 
@@ -384,7 +392,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
    * Gets notified with progress along the currently active route.
    */
   private val routeProgressObserver = RouteProgressObserver { routeProgress ->
-
+//    binding.maneuverView.visibility = View.VISIBLE
     if(isPreview)
       return@RouteProgressObserver
     // update the camera position to account for the progressed fragment of the route
@@ -402,11 +410,14 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     val maneuvers = maneuverApi.getManeuvers(routeProgress)
     maneuvers.fold(
       { error ->
-        Toast.makeText(
-          context,
-          error.errorMessage,
-          Toast.LENGTH_SHORT
-        ).show()
+
+//        findRoute(coordinatesList,indices, names)
+
+//        Toast.makeText(
+//          context,
+//          "Amar=> ${error.errorMessage}",
+//          Toast.LENGTH_SHORT
+//        ).show()
       },
       {
         val maneuverViewOptions = ManeuverViewOptions.Builder()
@@ -458,7 +469,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
    * - driver got off route and a reroute was executed
    */
   private val routesObserver = RoutesObserver { routeUpdateResult ->
-  
+
     if (routeUpdateResult.navigationRoutes.isNotEmpty()) {
       // generate route geometries asynchronously and render them
       routeLineApi.setNavigationRoutes(
@@ -499,7 +510,8 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     }
 
     // initialize Mapbox Navigation
-    mapboxNavigation = if (MapboxNavigationProvider.isCreated()) {
+    mapboxNavigation =
+      if (MapboxNavigationProvider.isCreated()) {
       MapboxNavigationProvider.retrieve()
     } else {
       MapboxNavigationProvider.create(
@@ -579,6 +591,20 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
       routeLineView.initializeLayers(it)
     }
 
+//    val routeLineLayer = LineLayer("route-layer-id", "route-source-id").apply {
+//      // Set line color (Optional)
+//      setProperties(
+//        PropertyFactory.lineColor(Color.parseColor("#3b9ddd")),
+//        // Set the line width (adjust to reduce path width)
+//        PropertyFactory.lineWidth(3.0f)  // Reduce this value for a thinner route line
+//      )
+//    }
+//
+//// Add the LineLayer to the map's style
+//    binding.mapView.mapboxMap.getStyle { style ->
+//      style.addLayer(routeLineLayer)
+//    }
+
     // initialize view interactions
     binding.stop.setOnClickListener {
       val event = Arguments.createMap()
@@ -630,6 +656,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     speechApi.cancel()
     voiceInstructionsPlayer?.shutdown()
     mapboxNavigation.stopTripSession()
+    MapboxNavigationProvider.destroy()
   }
 
   private fun initNavigation() {
@@ -716,6 +743,13 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
           routes: List<NavigationRoute>,
           @RouterOrigin routerOrigin: String
         ) {
+
+
+//          Toast.makeText(
+//            context,
+//            "Routes info  => route size:${routes.size}, ",
+//            Toast.LENGTH_SHORT
+//          ).show()
           setRouteAndStartNavigation(routes)
 
         }
@@ -734,13 +768,37 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
 
       // Create a TextView to be used as the annotation view
 
-      if(index!=0 && index!=waypoints.size-1){
+      if(index!=0 && index!=coordinatesList.lastIndex){
         val waypointView =  WayPointViewBinding.inflate(LayoutInflater.from(context), this, false)
 
         waypointView.apply {
 
-          indexWay.text = if(index==1){"Start Point"} else if(index==coordinatesList.size-1){"End Point"} else {(indices[index]-1).toString()}// Show the number as text
-//          nameWay.text = names[index].toString()
+          indexWay.setImageDrawable(when(index){
+            1 -> AppCompatResources.getDrawable(context,R.drawable.m01)
+            waypoints.size -> AppCompatResources.getDrawable(context,R.drawable.m03)
+            else -> {
+              AppCompatResources.getDrawable(context,R.drawable.m02)
+            }
+          })
+          if(!isPreview) {
+            nameWay.text = names[index].toString()
+            nameWay.visibility = View.VISIBLE
+
+
+            /*val annotationManager = binding.mapView.annotations.createPointAnnotationManager()
+            // Create PointAnnotationOptions to customize the marker and text
+            val pointAnnotationOptions = PointAnnotationOptions()
+              .withPoint(point)
+              .withTextField(names[index].toString())    // Add the name for the marker
+              .withTextSize(12.0)     // Adjust the size of the text
+              .withTextColor("black") // Set text color
+              .withIconImage("marker-icon")
+              .withTextOffset(listOf(0.0, 2.0))  // Adjust the offset of the text from the icon
+              .withTextAnchor(TextAnchor.TOP)  // Position text above the icon
+
+            // Add the marker and text to the map
+            annotationManager.create(pointAnnotationOptions)*/
+          }
         }
 
         var lp = FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
@@ -761,6 +819,9 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
           waypointView.root,
           viewAnnotationOptions
         )
+
+
+
       }
     }
 
@@ -773,16 +834,6 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
 
       // move the camera to overview when new route is available
       mapboxNavigation.startTripSession(withForegroundService = true)
-    }else{
-
-//      val mapAnimationOptions = MapAnimationOptions.Builder().duration(0).build()
-//      binding.mapView.camera.easeTo(
-//        CameraOptions.Builder()
-//          .zoom(10.0)
-//          .build(),
-//        mapAnimationOptions
-//      )
-
     }
 
 
@@ -814,6 +865,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
       indices.add(0,0)
       coordinatesList.add(it)
     }
+
     this.waypoints.let {
       coordinatesList.addAll(waypoints)
     }
@@ -895,6 +947,8 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
         }
       }
       this.waypoints.addAll(stops)
+      this.destination = this.waypoints.last()
+      this.origin = this.waypoints.first()
     }
   }
 
@@ -902,11 +956,11 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     this.isPreview = value
   }
   fun setWaypointMarker(value: ReadableArray){
-    Toast.makeText(
-      context,
-      "image size => ${value.size()}",
-      Toast.LENGTH_SHORT
-    ).show()
+//    Toast.makeText(
+//      context,
+//      "image size => ${value.size()}",
+//      Toast.LENGTH_SHORT
+//    ).show()
   }
 
   fun setLocal(language: String) {

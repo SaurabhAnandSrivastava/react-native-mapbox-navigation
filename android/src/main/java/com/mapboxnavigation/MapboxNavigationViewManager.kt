@@ -79,7 +79,6 @@ class MapboxNavigationViewManager(private var reactContext: ReactApplicationCont
 //    Toast.makeText(view!!.context,"stops data called",Toast.LENGTH_SHORT).show()
 
     view?.setStops(value)
-
 //    Log.e("Stops","stops data called=> $value")
   }
 
@@ -105,6 +104,8 @@ class MapboxNavigationViewManager(private var reactContext: ReactApplicationCont
   override fun setLocal(view: MapboxNavigationView?, language: String?) {
     if (language !== null) {
       view?.setLocal(language)
+    }else{
+      view?.setLocal("en")
     }
     view?.onCreate()
   }
