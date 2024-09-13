@@ -758,10 +758,13 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
   }
 
   @SuppressLint("MissingPermission")
-  private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
-    // set routes, where the first route in the list is the primary route that
-    // will be used for active guidance
+private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
+  // set routes, where the first route in the list is the primary route that
+  // will be used for active guidance
+  binding.mapView.mapboxMap.getStyle { style ->
     mapboxNavigation.setNavigationRoutes(routes)
+  }
+  
     mapboxNavigation.setRerouteEnabled(false)
 
     coordinatesList.forEachIndexed { index, point ->
