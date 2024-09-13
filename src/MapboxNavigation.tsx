@@ -102,6 +102,7 @@ class MapboxNavigation extends React.Component<
       waypoints,
       destination,
       style,
+      driverLocations,
       onLocationChange,
       onRouteProgressChange,
       onError,

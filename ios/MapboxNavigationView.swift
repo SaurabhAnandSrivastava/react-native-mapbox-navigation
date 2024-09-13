@@ -20,7 +20,6 @@ extension UIView {
 }
 
 class MapboxNavigationView: UIView, NavigationViewControllerDelegate,
-                            NavigationServiceDelegate,
 
 NavigationMapViewDelegate{
     weak var navViewController: NavigationViewController?
@@ -51,6 +50,32 @@ NavigationMapViewDelegate{
     
     func setStops(data: [[String: Any]]) {
         stops = data
+        
+    }
+    
+    
+    var driverLocations: [[String: Any]] = [] {
+        didSet { setNeedsLayout() }
+    }
+    
+    
+    
+    func setDriverLocations(data: [[String: Any]]) {
+        driverLocations = data
+        
+        
+        if driverLocations.count > 0 {
+            print(data.first)
+            
+            if (self.navViewController != nil) {
+                addDriver(mapView:(self.navViewController?.navigationMapView)!)
+            }
+            
+            
+        }
+        else{
+            print("No data")
+        }
         
     }
     
@@ -110,7 +135,7 @@ NavigationMapViewDelegate{
         //guard startOrigin.count == 2 && destination.count == 2 else { return }
         
         embedding = true
-
+        
         //            let originWaypoint = Waypoint(coordinate: CLLocationCoordinate2D(latitude: startOrigin[1] as! CLLocationDegrees, longitude: startOrigin[0] as! CLLocationDegrees))
         var waypointsArray = [Waypoint]()
         
@@ -214,7 +239,7 @@ NavigationMapViewDelegate{
                 else{
                     
                     
-                  
+                    
                     
                     
                     
@@ -225,7 +250,7 @@ NavigationMapViewDelegate{
                     StatusView.appearance().isHidden = true
                     
                     NavigationSettings.shared.voiceMuted = strongSelf.mute;
-               
+                    
                     
                     vc.delegate = strongSelf
                     self!.navViewController = vc
@@ -358,6 +383,95 @@ NavigationMapViewDelegate{
         
         
     }
+    
+    
+    func addDriver(mapView: NavigationMapView){
+        
+        
+        
+        for (index,item) in driverLocations.enumerated() {
+            
+            
+            
+            
+            if let cor = item["location"] as? NSDictionary {
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [self] in
+                   
+                    let pointAnnotationManager = navViewController?.navigationMapView!.mapView.viewAnnotations
+                   // for item in pointAnnotationManager {
+                    if  let view = pointAnnotationManager?.view(forId: item["deviceId"] as! String){
+                        pointAnnotationManager?.remove(view)
+                    }
+      
+                    
+                  
+                    
+                }
+                
+                
+                
+                
+                
+                
+                
+                
+                    
+                    let font = UIFont.systemFont(ofSize: 16)
+                    let text = item["name"]
+                let textWidth = 130.0
+                let textHeight = heightForText(text as! String, withFont: font, width: textWidth)
+                    
+               
+                    let options = ViewAnnotationOptions(
+                        geometry: Point(CLLocationCoordinate2D(latitude: cor["lat"] as! CLLocationDegrees, longitude: cor["lon"] as! CLLocationDegrees)),
+                        width: textWidth,
+                        height: textHeight+30,
+                        allowOverlap: false,
+                        visible: true,
+                        anchor: .center,
+                        offsetY: 0
+                        
+                    )
+                    
+                    // 3. Creating and adding the sample view to the mapView
+                   
+                let markerImage = "stopPoint"
+                  
+                let sampleView = createSampleView(withText:text as! String,width: textWidth,height: textHeight, markerText: "\(item["name"] ?? "")", markerImageName: markerImage)
+                    if isPreview {
+                        try? self.mapView?.mapView.viewAnnotations.add(sampleView,id:(item["deviceId"] as! String), options: options)
+                    }
+                    else {
+                        try? navViewController?.navigationMapView?.mapView.viewAnnotations.add(sampleView,id:(item["deviceId"]as! String), options: options)
+                    }
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                }
+                
+            
+            
+            
+            
+        }
+        
+        
+        
+        
+    }
+    
+    
+    
+    
+    
+    
     
     func calculateTextWidth(text: String, font: UIFont) -> CGFloat {
         let attributes: [NSAttributedString.Key: Any] = [NSAttributedString.Key.font: font]
@@ -665,7 +779,7 @@ NavigationMapViewDelegate{
     }
     
     
- 
+    
     
     
     

@@ -1,6 +1,7 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 
 import type { Language } from './locals';
+import type { Double } from 'react-native/Libraries/Types/CodegenTypes';
 
 export type Coordinate = {
   latitude: number;
@@ -25,6 +26,14 @@ export type RouteProgress = {
   distanceRemaining: number;
 };
 
+export type driverLoc = {
+    id: string,
+  deviceId: string,
+  eventId: string,
+  name: string,
+  location: { lon: Double, lat: Double  }
+};
+
 export type MapboxError = {
   message?: string;
 };
@@ -45,6 +54,7 @@ export interface MapboxNavigationProps {
   waypoints?: Coordinate[];
   destination: Coordinate;
   language?: Language;
+  driverLocations:[driverLoc];
   /**
    * [iOS only]
    * @Default false

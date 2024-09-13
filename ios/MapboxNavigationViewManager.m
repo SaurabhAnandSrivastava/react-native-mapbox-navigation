@@ -30,6 +30,15 @@ RCT_CUSTOM_VIEW_PROPERTY(stops, NSArray, NSObject)
     [self performSelector:@selector(setStops:stopsArray:) withObject:view withObject:json];
 }
 
+RCT_CUSTOM_VIEW_PROPERTY(driverLocations, NSArray, NSObject)
+{
+    
+    // Pass the NSArray (which is coming from React Native) directly to the Swift method
+    [self performSelector:@selector(setDriverLocations:stopsArray:) withObject:view withObject:json];
+}
+
+
+
 
 
 

@@ -36,6 +36,17 @@ class MapboxNavigationViewManager: RCTViewManager {
         currentView.setStops(data:stopsArray)
     }
     
+    @objc(setDriverLocations:stopsArray:)
+    public func setDriverLocations(view: Any, stopsArray: [[String: Any]]) {
+        // Cast the view to MapboxNavigationView
+        guard let currentView = view as? MapboxNavigationView else {
+            return
+        }
+        
+        // Set the stops on the view
+        currentView.setDriverLocations(data:stopsArray)
+    }
+    
   
     
     
