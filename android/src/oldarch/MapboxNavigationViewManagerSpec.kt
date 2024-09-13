@@ -10,7 +10,6 @@ abstract class MapboxNavigationViewManagerSpec<T : View> : SimpleViewManager<T>(
   abstract fun setDestination(view: T?, value: ReadableArray?)
   abstract fun setWaypoints(view: T?, value: ReadableArray?)
   abstract fun setStops(view: T?, value: ReadableArray?)
-  abstract fun updateDriverLocations(view: T?, value: ReadableArray?)
   abstract fun setLocal(view: T?, language: String?)
   abstract fun setMute(view: T?, value: Boolean)
   abstract fun setShowCancelButton(view: T?, value: Boolean)

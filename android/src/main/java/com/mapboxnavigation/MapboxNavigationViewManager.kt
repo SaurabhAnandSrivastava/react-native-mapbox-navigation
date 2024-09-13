@@ -82,14 +82,6 @@ class MapboxNavigationViewManager(private var reactContext: ReactApplicationCont
 //    Log.e("Stops","stops data called=> $value")
   }
 
-  @ReactProp(name = "driverLocations")
-  override fun updateDriverLocations(view: MapboxNavigationView?, value: ReadableArray?) {
-//    Toast.makeText(view!!.context,"stops data called",Toast.LENGTH_SHORT).show()
-
-    view?.setDriverLocations(value)
-//    Log.e("Stops","stops data called=> $value")
-  }
-
   @ReactProp(name = "waypointMarker")
   override fun setWaypointMarker(view: MapboxNavigationView?, value: ReadableArray) {
 //    Toast.makeText(view!!.context,"stops data called",Toast.LENGTH_SHORT).show()

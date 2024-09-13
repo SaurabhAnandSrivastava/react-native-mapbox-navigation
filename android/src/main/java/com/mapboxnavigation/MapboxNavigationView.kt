@@ -1,13 +1,8 @@
 package com.mapboxnavigation
 
-import androidx.annotation.DrawableRes
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import android.content.res.Resources
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.os.Bundle
-import android.util.Base64
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -101,20 +96,11 @@ import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.extension.style.layers.properties.generated.TextAnchor
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
-import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
-import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
+
+
 
 
 import java.util.Locale
-
-data class Driver(
-  val name: String?="",
-  val image: String?="",
-  val id: String?="",
-  val eventId : String?="",
-  val deviceId : String?="",
-  val point : Point
-)
 
 @SuppressLint("ViewConstructor")
 class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout(context.baseContext) {
@@ -125,9 +111,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
   private var origin: Point? = null
   private var destination: Point? = null
   private var waypoints = mutableListOf<Point>()
-  private var driverLocationList = mutableListOf<Driver>()
   val coordinatesList = mutableListOf<Point>()
-  val addedDriversMap = mutableMapOf<String,PointAnnotation>()
   private var names = mutableListOf<String>()
   private var indices = mutableListOf<Int>()
   private var locale = Locale.getDefault()
@@ -166,9 +150,9 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
   private val pixelDensity = Resources.getSystem().displayMetrics.density
   private val overviewPadding: EdgeInsets by lazy {
     EdgeInsets(
-      140.0 * pixelDensity,
+      70.0 * pixelDensity,
       40.0 * pixelDensity,
-      120.0 * pixelDensity,
+      60.0 * pixelDensity,
       40.0 * pixelDensity
     )
   }
@@ -966,77 +950,6 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
       this.destination = this.waypoints.last()
       this.origin = this.waypoints.first()
     }
-  }
-
-  fun setDriverLocations(value: ReadableArray?){
-
-    if(value!=null) {
-      val driverLocList: List<Driver> = value!!.toArrayList().mapNotNull { item ->
-        val map = item as? Map<*, *>
-        val coordinate = map?.get("location") as Map<*, *>
-        val latitude = coordinate.get("lat") as Double
-        val longitude = coordinate.get("lon") as Double
-        if (latitude != null && longitude != null) {
-          Driver(
-            id = map?.get("id") as String,
-            eventId = map?.get("eventId") as String,
-            deviceId = map?.get("deviceId") as String,
-            name = map?.get("name") as String,
-            image = "",
-            point = Point.fromLngLat(longitude, latitude)
-          )
-        } else {
-          null
-        }
-      }
-      this.driverLocationList.addAll(driverLocList)
-      driverLocationList.forEachIndexed { index, driver ->
-          if(addedDriversMap.containsKey(driver.id)){
-            updateMarkerLocation(addedDriversMap[driver.id]!!,driver.point.longitude(),driver.point.latitude())
-            addedDriversMap[driver.id]!!.point = driver.point
-          }else{
-            addDriverMarker(driver)
-          }
-      }
-    }
-  }
-
-  private fun addDriverMarker(driver : Driver){
-
-    val pointAnnotationManager: PointAnnotationManager =
-      binding.mapView.annotations.createPointAnnotationManager()
-
-    val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-      .withPoint(driver.point)
-      .withIconSize(0.2)
-      .withIconImage(getBitmapFromDrawable(resources, R.drawable.m01))
-
-    val pointAnnotation: PointAnnotation = pointAnnotationManager.create(pointAnnotationOptions)
-    addedDriversMap[driver.id!!] = pointAnnotation
-  }
-
-  fun getBitmapFromDrawable(resources: Resources,@DrawableRes drawableId: Int) : Bitmap{
-    return BitmapFactory.decodeResource(
-      resources,
-      drawableId
-    )
-  }
-
-  fun base64ToBitmap(base64String: String?): Bitmap {
-    val decodedBytes: ByteArray = Base64.decode(base64String, Base64.DEFAULT)
-    return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
-  }
-
-  private fun updateMarkerLocation(
-    pointAnnotation: PointAnnotation,
-    newLongitude: Double,
-    newLatitude: Double
-  ) {
-    val pointAnnotationManager: PointAnnotationManager =
-      binding.mapView.annotations.createPointAnnotationManager()
-    val newPoint: Point = Point.fromLngLat(newLongitude, newLatitude)
-    pointAnnotation.point= newPoint // Update the position
-    pointAnnotationManager.update(pointAnnotation) // Reflect changes on the map
   }
 
   fun setIsPreview(value: Boolean){
