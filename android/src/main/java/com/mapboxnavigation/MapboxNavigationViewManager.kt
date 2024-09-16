@@ -91,6 +91,15 @@ class MapboxNavigationViewManager(private var reactContext: ReactApplicationCont
 //    Log.e("Stops","stops data called=> $value")
   }
 
+  @ReactProp(name = "driverLocations")
+  override fun updateDriversLocation(view: MapboxNavigationView?, value: ReadableArray) {
+//    Toast.makeText(view!!.context,"stops data called",Toast.LENGTH_SHORT).show()
+
+    view?.updateDriversLocation(value)
+
+//    Log.e("Stops","stops data called=> $value")
+  }
+
   @ReactProp(name = "isPreview")
   override fun setIsPreview(view: MapboxNavigationView?, value: Boolean) {
 //    Toast.makeText(view!!.context,"stops data called",Toast.LENGTH_SHORT).show()

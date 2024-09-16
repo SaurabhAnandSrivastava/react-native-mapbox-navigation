@@ -1,12 +1,16 @@
 package com.mapboxnavigation
 
+
+import android.graphics.Color
+import android.util.Log
+import androidx.annotation.DrawableRes
+import androidx.appcompat.app.AppCompatActivity
+import android.view.LayoutInflater
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import android.content.res.Resources
-import android.util.Log
-import android.view.LayoutInflater
 import android.view.View
-import java.util.Arrays
+import com.mapbox.maps.Style
 import androidx.appcompat.content.res.AppCompatResources
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -86,7 +90,7 @@ import com.mapbox.navigation.voice.model.SpeechValue
 import com.mapbox.navigation.voice.model.SpeechVolume
 import com.mapboxnavigation.databinding.NavigationViewBinding
 import com.mapboxnavigation.databinding.WayPointViewBinding
-import com.mapboxnavigation.databinding.WayPointPreviewBinding
+import com.mapboxnavigation.databinding.DriverLayoutBinding
 import com.mapbox.maps.ViewAnnotationAnchor
 import com.mapbox.maps.viewannotation.annotationAnchor
 import com.mapbox.maps.CameraOptions
@@ -108,14 +112,28 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     private const val BUTTON_ANIMATION_DURATION = 1500L
   }
 
+
+  data class Driver(
+    var deviceId: String ="",
+    var id: String = "",
+    var location: Point? = null,
+    var eventId: String = "",
+    var name: String = ""
+  )
+
   private var origin: Point? = null
   private var destination: Point? = null
   private var waypoints = mutableListOf<Point>()
   val coordinatesList = mutableListOf<Point>()
   private var names = mutableListOf<String>()
   private var indices = mutableListOf<Int>()
+  private var drivers = mutableListOf<Driver>()
   private var locale = Locale.getDefault()
   private var isPreview = false
+  private var isDarkMode = false
+  private var driverMarkerMap : MutableMap <String, ViewAnnotationOptions>? = null
+  private var driverMarkerMapView : MutableMap <String, View>? = null
+//  private var driverMarkerLabelMap : MutableMap <String, ViewAnnotationOptions>? = null
 
   /**
    * Bindings to the example layout.
@@ -509,6 +527,9 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
       return
     }
 
+    driverMarkerMap = mutableMapOf <String, ViewAnnotationOptions>()
+    driverMarkerMapView = mutableMapOf <String, View>()
+
     // initialize Mapbox Navigation
     mapboxNavigation =
       if (MapboxNavigationProvider.isCreated()) {
@@ -762,9 +783,11 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
   // set routes, where the first route in the list is the primary route that
   // will be used for active guidance
   binding.mapView.mapboxMap.getStyle { style ->
+//    Log.e("Map Style","Map day light Style => ${this.styleURI}")
+    isDarkMode = style.styleURI == Style.DARK
     mapboxNavigation.setNavigationRoutes(routes)
   }
-  
+
     mapboxNavigation.setRerouteEnabled(false)
 
     coordinatesList.forEachIndexed { index, point ->
@@ -930,6 +953,99 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
 
   fun setWaypoints(waypoints: List<Point>) {
     this.waypoints.addAll(waypoints)
+
+  }
+
+  fun updateDriversLocation(value: ReadableArray?) {
+
+
+
+    if(value!=null) {
+      value!!.toArrayList().mapNotNull { item ->
+        val map = item as? Map<*, *>
+        val coordinate = map?.get("location") as Map<*, *>
+        val deviceId = map?.get("deviceId") as String
+        val id = map?.get("id") as String
+        val eventId = map?.get("eventId") as String
+        val name = map?.get("name") as String
+        val latitude = coordinate?.get("lat") as Double
+        val longitude = coordinate?.get("lon") as Double
+
+        if (latitude != null && longitude != null) {
+          drivers.add(Driver(
+            deviceId = deviceId.toString(),
+            eventId = eventId,
+            id = id.toString(),
+            name = name.toString(),
+            location = Point.fromLngLat(longitude, latitude)
+          ))
+        } else {
+          null
+        }
+      }
+
+      binding.mapView.mapboxMap.getStyle { style ->
+
+        drivers.forEachIndexed { index, driver ->
+
+          val thumb = DriverLayoutBinding.inflate(LayoutInflater.from(context), this, false)
+          var lp = FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+
+          thumb.apply {
+            root.layoutParams = lp
+            if (isDarkMode) {
+              bg.setBackgroundResource(R.drawable.driver_thumb_bg_dark)
+              indexWay.setTextColor(Color.parseColor("#ffffff"))
+              nameWay.setTextColor(Color.parseColor("#ffffff"))
+            } else {
+              bg.setBackgroundResource(R.drawable.driver_thumb_bg)
+              indexWay.setTextColor(Color.parseColor("#000000"))
+              nameWay.setTextColor(Color.parseColor("#000000"))
+            }
+            nameWay.text = driver.name.toString()
+          }
+
+
+          if (driverMarkerMapView!!.containsKey(driver.deviceId)) {
+            val viewAnnotationOptions = ViewAnnotationOptions.Builder()
+              .geometry(driver.location!!)
+              .build()
+            binding.mapView.viewAnnotationManager.updateViewAnnotation(driverMarkerMapView?.get(driver.deviceId)!!, viewAnnotationOptions)
+          } else {
+            val viewAnnotationOptions = ViewAnnotationOptions.Builder()
+              .geometry(driver.location!!)
+              .allowOverlap(false)
+              .visible(true)
+              .annotationAnchor {
+                anchor(ViewAnnotationAnchor.CENTER)
+              }
+              .build()
+            driverMarkerMapView!!.put(driver.deviceId, thumb.root)
+            binding.mapView.viewAnnotationManager.addViewAnnotation(
+              thumb.root,
+              viewAnnotationOptions
+            )
+        
+
+//          val annotationManager = binding.mapView.annotations.createPointAnnotationManager()
+//          val pointAnnotationOptions = PointAnnotationOptions()
+//            .withPoint(driver.location!!)
+//            .withTextField("AMar")  // Adding the name for the marker
+//            .withTextSize(15.0)
+//            .withIconImage("marker-icon")
+//            .withTextOffset(listOf(0.0,1.5))  // Adjust the offset of the text from the icon
+//            .withTextAnchor(TextAnchor.TOP)// You can specify an icon
+//
+//          // Add the marker to the map
+//          annotationManager.create(pointAnnotationOptions)
+
+
+          }
+        }
+      }
+
+
+    }
 
   }
 
