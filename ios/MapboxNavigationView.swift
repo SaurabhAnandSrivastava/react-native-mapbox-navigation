@@ -65,7 +65,7 @@ NavigationMapViewDelegate{
         
         
         if driverLocations.count > 0 {
-            print(data.first)
+            
             
             if (self.navViewController != nil) {
                 addDriver(mapView:(self.navViewController?.navigationMapView)!)
@@ -186,7 +186,7 @@ NavigationMapViewDelegate{
         
         
         
-        Directions.shared.calculateRoutes(options: options) { [weak self] result in
+        Directions.shared.calculateWithCache(options: options) { [weak self] result in
             guard let strongSelf = self, let parentVC = strongSelf.parentViewController else {
                 return
             }
@@ -243,8 +243,19 @@ NavigationMapViewDelegate{
                     
                     
                     
-                    let navigationOptions = NavigationOptions(simulationMode:  .never)
-                    let vc = NavigationViewController(for: response, navigationOptions: navigationOptions)
+                    // let navigationOptions = NavigationOptions(simulationMode:  .always)
+                    
+                    var opt = PredictiveCacheOptions()
+                    opt.predictiveCacheNavigationOptions.locationOptions.currentLocationRadius = 2000
+                    var sim = SimulationMode(rawValue: 1)
+                    sim = .never
+                    if strongSelf.shouldSimulateRoute {
+                        sim = .always
+                    }
+                    
+                    let navigationOptions1 = NavigationOptions(  predictiveCacheOptions: opt, simulationMode: sim)
+                    
+                    let vc = NavigationViewController(for: response, navigationOptions: navigationOptions1)
                     
                     vc.showsEndOfRouteFeedback = strongSelf.showsEndOfRouteFeedback
                     StatusView.appearance().isHidden = true
@@ -305,6 +316,10 @@ NavigationMapViewDelegate{
     func addStopMarker(data:[[String: Any]],mapView: NavigationMapView){
         
         
+        let (bgcolor,fgcolor) = getMapTextColor(mapView: mapView)
+        
+        
+        
         for (index,item) in stops.enumerated() {
             
             
@@ -313,17 +328,17 @@ NavigationMapViewDelegate{
                     
                     let font = UIFont.systemFont(ofSize: 16)
                     let text = item["name"]
-                    var textWidth = 130.0
-                    var textHeight = heightForText(text as! String, withFont: font, width: textWidth)
+                    let textWidth = 130.0
+                    let textHeight = heightForText(text as! String, withFont: font, width: textWidth)
                     
-                    if isPreview{
-                        textHeight = 0
-                        
-                        
-                        textWidth = 30
-                        
-                        
-                    }
+//                    if isPreview{
+//                        textHeight = 0
+//                        
+//                        
+//                        textWidth = 30
+//                        
+//                        
+//                    }
                     
                     
                     
@@ -353,7 +368,7 @@ NavigationMapViewDelegate{
                         mText = "D"
                         markerImage = "endPoint"
                     }
-                    let sampleView = createSampleView(withText:text as! String,width: textWidth,height: textHeight, markerText: "\(mText)", markerImageName: markerImage)
+                    let sampleView = createSampleView(withText:text as! String,width: textWidth,height: textHeight, markerText: "\(mText)", markerImageName: markerImage, bgc: bgcolor,fgc: fgcolor)
                     if isPreview {
                         try? self.mapView?.mapView.viewAnnotations.add(sampleView, options: options)
                     }
@@ -396,49 +411,62 @@ NavigationMapViewDelegate{
             
             if let cor = item["location"] as? NSDictionary {
                 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [self] in
+                
+                let font = UIFont.systemFont(ofSize: 16)
+                let text = item["name"]
+            let textWidth = 130.0
+            let textHeight = heightForText(text as! String, withFont: font, width: textWidth)
+                
+           
+                let options = ViewAnnotationOptions(
+                    geometry: Point(CLLocationCoordinate2D(latitude: cor["lat"] as! CLLocationDegrees, longitude: cor["lon"] as! CLLocationDegrees)),
+                    width: textWidth,
+                    height: textHeight+50,
+                    allowOverlap: false,
+                    visible: true,
+                    anchor: .center,
+                    offsetY: 0
+                    
+                )
                    
                     let pointAnnotationManager = navViewController?.navigationMapView!.mapView.viewAnnotations
                    // for item in pointAnnotationManager {
                     if  let view = pointAnnotationManager?.view(forId: item["deviceId"] as! String){
-                        pointAnnotationManager?.remove(view)
-                    }
-      
-                    
-                  
-                    
-                }
-                
-                
-                
-                
-                
-                
-                
-                
-                    
-                    let font = UIFont.systemFont(ofSize: 16)
-                    let text = item["name"]
-                let textWidth = 130.0
-                let textHeight = heightForText(text as! String, withFont: font, width: textWidth)
-                    
-               
-                    let options = ViewAnnotationOptions(
-                        geometry: Point(CLLocationCoordinate2D(latitude: cor["lat"] as! CLLocationDegrees, longitude: cor["lon"] as! CLLocationDegrees)),
-                        width: textWidth,
-                        height: textHeight+30,
-                        allowOverlap: false,
-                        visible: true,
-                        anchor: .center,
-                        offsetY: 0
                         
-                    )
+                        
+                         // CLLocationCoordinate2D coordinate
+                        
+                        
+                        do {
+                          
+                            try pointAnnotationManager!.update(view, options: options)
+                          
+                        }  catch {
+                            print("An unexpected error occurred: \(error)")
+                        }
+                       
+                        
+                    }
+                
+                else {
+                    
+                
+      
+                let (bgcolor,fgcolor) = getMapTextColor(mapView: mapView)
+                
+                
+                
+                
+                
+                
+                
+                   
                     
                     // 3. Creating and adding the sample view to the mapView
                    
                 let markerImage = "stopPoint"
                   
-                let sampleView = createSampleView(withText:text as! String,width: textWidth,height: textHeight, markerText: "\(item["name"] ?? "")", markerImageName: markerImage)
+                    let sampleView = createLiveLocationView(withName:text as! String ,width: textWidth,height: textHeight,backgroundColor: bgcolor,forgroundColor: fgcolor)
                     if isPreview {
                         try? self.mapView?.mapView.viewAnnotations.add(sampleView,id:(item["deviceId"] as! String), options: options)
                     }
@@ -456,7 +484,7 @@ NavigationMapViewDelegate{
                     
                 }
                 
-            
+            }
             
             
             
@@ -468,7 +496,26 @@ NavigationMapViewDelegate{
     }
     
     
-    
+    func getMapTextColor(mapView:NavigationMapView) -> (UIColor,UIColor){
+        
+        var bgcolor = UIColor.white
+        var fgcolor =  UIColor(red: 41/256, green: 42/256, blue: 47/256, alpha: 1)
+      
+        
+        if let styleURL =  mapView.mapView.mapboxMap.style.uri {
+             if (styleURL == StyleURI.dark) || (styleURL == StyleURI.navigationNight) {
+                
+                 fgcolor = UIColor.white
+                 bgcolor = UIColor(red: 41/256, green: 42/256, blue: 47/256, alpha: 1)
+            }
+            
+            
+            
+        }
+        
+        return(bgcolor,fgcolor)
+        
+    }
     
     
     
@@ -509,21 +556,101 @@ NavigationMapViewDelegate{
     }
     
     // MARK: -Custom Markers
-    private func createSampleView(withText text: String,width:CGFloat?,height:CGFloat?,markerText:String,markerImageName:String) -> UIView {
+    private func createLiveLocationView(withName text: String,width:CGFloat,height:CGFloat,backgroundColor:UIColor,forgroundColor:UIColor) -> UIView {
+        
+        
+       
+    
+        
+        
+        let view = UIView()
+        
+       
+        
+        
+        //let markerLbl = UILabel(frame: CGRect(x:6 , y: 2, width: 18, height: 18))
+        let markerLbl = UILabel(frame: CGRect(x:(width-40)/2 , y: 0, width: 40, height: 40))
+        markerLbl.backgroundColor = .white
+        markerLbl.textAlignment = .center
+        markerLbl.font = .systemFont(ofSize: 18, weight: .bold)
+        //markerImage.addSubview(markerLbl)
+        markerLbl.layer.cornerRadius = 20
+        
+        if let firstLetter = text.first {
+            markerLbl.text = String(firstLetter)
+           
+        }
+       
+        //markerLbl.textColor = UIColor(red: 152/255, green: 205/255, blue: 236/255, alpha: 1)
+        markerLbl.textColor = forgroundColor
+        
+        // Enable masksToBounds to ensure the rounded corners are applied
+        markerLbl.layer.masksToBounds = true
+        
+        view.addSubview(markerLbl)
+        
+        markerLbl.layer.cornerRadius = markerLbl.frame.size.width / 2
+        markerLbl.clipsToBounds = true // Ensure the corners are clipped
+        markerLbl.backgroundColor = backgroundColor
+
+        // Set the border
+        markerLbl.layer.borderWidth = 1.0
+        
+        markerLbl.layer.borderColor =  forgroundColor.cgColor
+        
+        
+        let lbl = UILabel(frame:CGRectMake(0, 40, width, height))
+        lbl.text = text
+        lbl.textAlignment = .center
+        lbl.font = .systemFont(ofSize: 12, weight: .medium)
+        lbl.textColor = forgroundColor
+        lbl.numberOfLines = 0
+        lbl.sizeToFit()
+        lbl.center.x = markerLbl.center.x
+        view.addSubview(lbl)
+        
+        
+       
+        
+        
+        
+        
+        return view
+        
+        
+        //return label
+        
+    }
+    
+    
+    
+    
+    private func createSampleView(withText text: String,width:CGFloat?,height:CGFloat?,markerText:String,markerImageName:String,bgc:UIColor,fgc:UIColor) -> UIView {
         
         
         if isPreview {
             let view = UIView()
-            //view.backgroundColor = .white
+           // view.backgroundColor = .white
             
-            let markerImage = UIImageView(frame: CGRectMake(0, 0, 30, 30))
+            let markerImage = UIImageView(frame: CGRectMake((width!-30)/2, 2, 30, 30))
             //markerImage.image = waypointMarker
             
             markerImage.contentMode = .scaleAspectFit
             markerImage.image = UIImage(named: "\(markerImageName).png")
             
+            let lbl = UILabel(frame: CGRect(x: 0, y: 32, width: width!, height: height!))
+            lbl.text = text
+            lbl.numberOfLines = 0
+            lbl.textColor = .gray
+            lbl.textAlignment = .center
+            lbl.textColor = fgc
+         
+            lbl.font = UIFont.systemFont(ofSize: 14)
+            view.addSubview(lbl)
+            
             
             view.addSubview(markerImage)
+            
             
             return view
             
@@ -542,17 +669,17 @@ NavigationMapViewDelegate{
         view.addSubview(markerImage)
         
         //let markerLbl = UILabel(frame: CGRect(x:6 , y: 2, width: 18, height: 18))
-        let markerLbl = UILabel(frame: CGRect(x:0 , y: 0, width: 30, height: 30))
-        markerLbl.backgroundColor = .white
-        markerLbl.textAlignment = .center
-        markerLbl.font = .systemFont(ofSize: 15, weight: .bold)
-        //markerImage.addSubview(markerLbl)
-        markerLbl.layer.cornerRadius = 3
-        markerLbl.text = markerText
-        markerLbl.textColor = .black
-        
-        // Enable masksToBounds to ensure the rounded corners are applied
-        markerLbl.layer.masksToBounds = true
+//        let markerLbl = UILabel(frame: CGRect(x:0 , y: 0, width: 30, height: 30))
+//        markerLbl.backgroundColor = textColor
+//        markerLbl.textAlignment = .center
+//        markerLbl.font = .systemFont(ofSize: 15, weight: .bold)
+//        //markerImage.addSubview(markerLbl)
+//        markerLbl.layer.cornerRadius = 3
+//        markerLbl.text = markerText
+//        markerLbl.textColor = .black
+//        
+//        // Enable masksToBounds to ensure the rounded corners are applied
+//        markerLbl.layer.masksToBounds = true
         
         
         
@@ -562,16 +689,17 @@ NavigationMapViewDelegate{
         let label = UILabel(frame: CGRect(x: 0, y: 30, width: width!, height: height!))
         
         label.text = text
-        label.font = .systemFont(ofSize: 15)
+        label.font = .systemFont(ofSize: 16, weight: .medium)
         label.numberOfLines = 0
-        label.textColor = UIColor(red: 152/255, green: 205/255, blue: 236/255, alpha: 1)
+        label.textColor = fgc
         
         label.textAlignment = .center
-        label.layer.shadowColor = UIColor.black.cgColor  // Set the shadow color
-        label.layer.shadowOpacity = 1  // Set the shadow opacity (0 to 1)
-        label.layer.shadowOffset = CGSize(width: 0, height: 0)  // Set the shadow offset (x, y)
-        label.layer.shadowRadius = 0  // Set the blur radius of the shadow
-        label.layer.masksToBounds = false
+        
+        
+     
+        
+        
+     
         
         view.addSubview(label)
         return view
