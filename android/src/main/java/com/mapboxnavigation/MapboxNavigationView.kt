@@ -1059,7 +1059,7 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
 
             indexWay.text = driver.name.split(" ").mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
 
-            Glide.with(thumbImage).load("${driver.image}?name=${driver.name}").into(thumbImage)
+            Glide.with(thumbImage).load("${driver.image}").into(thumbImage)
 
           }
 
