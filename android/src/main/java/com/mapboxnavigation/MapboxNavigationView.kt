@@ -101,6 +101,12 @@ import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.extension.style.layers.properties.generated.TextAnchor
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 
+import com.mapbox.navigation.base.options.PredictiveCacheLocationOptions
+import com.mapbox.navigation.base.options.PredictiveCacheMapsOptions
+import com.mapbox.navigation.base.options.PredictiveCacheNavigationOptions
+import com.mapbox.navigation.base.options.PredictiveCacheOptions
+import com.mapbox.navigation.ui.maps.PredictiveCacheController
+
 
 
 
@@ -287,6 +293,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
    * to the Maps SDK in order to update the user location indicator on the map.
    */
   private val navigationLocationProvider = NavigationLocationProvider()
+  var predictiveCacheController : PredictiveCacheController? = null
 
   /**
    * RouteLine: Additional route line options are available through the
@@ -541,6 +548,36 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
       )
     }
 
+    val predictiveCacheLocationOptions = PredictiveCacheLocationOptions.Builder()
+      .currentLocationRadiusInMeters(1000)
+      .routeBufferRadiusInMeters(2000)
+      .destinationLocationRadiusInMeters(3000)
+      .build()
+
+    val predictiveCacheNavigationOptions = PredictiveCacheNavigationOptions.Builder()
+      .predictiveCacheLocationOptions(predictiveCacheLocationOptions)
+      .build()
+
+    val predictiveCacheMapsOptions = PredictiveCacheMapsOptions.Builder()
+      .build()
+
+    val predictiveCacheOptions = PredictiveCacheOptions.Builder()
+      .predictiveCacheMapsOptionsList(listOf(predictiveCacheMapsOptions))
+      .predictiveCacheNavigationOptions(predictiveCacheNavigationOptions)
+      .build()
+     predictiveCacheController =
+      PredictiveCacheController(predictiveCacheOptions)
+
+// cache only passed styles for the mapboxMap instance
+    val stylesToCache: MutableList<String> = ArrayList()
+    stylesToCache.add("mapbox://mapbox.mapbox-terrain-v2")
+    val cacheCurrentStyle = false
+    predictiveCacheController?.createStyleMapControllers(binding.mapView.mapboxMap, cacheCurrentStyle, stylesToCache)
+
+
+
+
+
     initNavigation()
 
     // set the animations lifecycle listener to ensure the NavigationCamera stops
@@ -677,7 +714,8 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     speechApi.cancel()
     voiceInstructionsPlayer?.shutdown()
     mapboxNavigation.stopTripSession()
-    MapboxNavigationProvider.destroy()
+    //MapboxNavigationProvider.destroy()
+    predictiveCacheController?.onDestroy()
   }
 
   private fun initNavigation() {

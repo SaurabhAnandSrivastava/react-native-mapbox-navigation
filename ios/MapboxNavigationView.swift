@@ -247,7 +247,10 @@ NavigationMapViewDelegate{
                     
                     var opt = PredictiveCacheOptions()
                     opt.predictiveCacheNavigationOptions.locationOptions.currentLocationRadius = 2000
-                    var sim = SimulationMode(rawValue: 1)
+                  opt.predictiveCacheMapsOptions.locationOptions.destinationLocationRadius = 2000
+                  opt.predictiveCacheMapsOptions.locationOptions.routeBufferRadius = 2000
+                  
+                  var sim = SimulationMode(rawValue: 1)
                     sim = .never
                     if strongSelf.shouldSimulateRoute {
                         sim = .always
@@ -402,7 +405,7 @@ NavigationMapViewDelegate{
     
     func addDriver(mapView: NavigationMapView){
         
-        
+     
         
         for (index,item) in driverLocations.enumerated() {
             
@@ -422,7 +425,7 @@ NavigationMapViewDelegate{
                     geometry: Point(CLLocationCoordinate2D(latitude: cor["lat"] as! CLLocationDegrees, longitude: cor["lon"] as! CLLocationDegrees)),
                     width: textWidth,
                     height: textHeight+50,
-                    allowOverlap: false,
+                    allowOverlap: true,
                     visible: true,
                     anchor: .center,
                     offsetY: 0
@@ -466,7 +469,7 @@ NavigationMapViewDelegate{
                    
                 let markerImage = "stopPoint"
                   
-                    let sampleView = createLiveLocationView(withName:text as! String ,width: textWidth,height: textHeight,backgroundColor: bgcolor,forgroundColor: fgcolor)
+                  let sampleView = createLiveLocationView(withName:text as! String ,width: textWidth,height: textHeight,backgroundColor: bgcolor,forgroundColor: fgcolor, profileUrl: item["profile"] as! String)
                     if isPreview {
                         try? self.mapView?.mapView.viewAnnotations.add(sampleView,id:(item["deviceId"] as! String), options: options)
                     }
@@ -541,22 +544,19 @@ NavigationMapViewDelegate{
     
     // MARK: - Polyline Styling Methods
     
-    func lineWidthExpression(_ multiplier: Double = 1) -> Expression {
-        let lineWidthExpression = Exp(.interpolate) {
-            Exp(.linear)
-            Exp(.zoom)
-            
-            // It's possible to change route line width depending on zoom level, by using expression
-            // instead of constant. Navigation SDK for iOS also exposes `RouteLineWidthByZoomLevel`
-            // public property, which contains default values for route lines on specific zoom levels.
-            RouteLineWidthByZoomLevel.multiplied(by: multiplier)
-        }
+  func lineWidthExpression(_ multiplier: Double = 1) -> MapboxMaps.Expression {
+      let lineWidthExpression = MapboxMaps.Expression(.interpolate) {
+          MapboxMaps.Expression(.linear)
+          MapboxMaps.Expression(.zoom)
+          
+          RouteLineWidthByZoomLevel.multiplied(by: multiplier)
+      }
         
         return lineWidthExpression
     }
     
     // MARK: -Custom Markers
-    private func createLiveLocationView(withName text: String,width:CGFloat,height:CGFloat,backgroundColor:UIColor,forgroundColor:UIColor) -> UIView {
+  private func createLiveLocationView(withName text: String,width:CGFloat,height:CGFloat,backgroundColor:UIColor,forgroundColor:UIColor,profileUrl:String) -> UIView {
         
         
        
@@ -572,17 +572,18 @@ NavigationMapViewDelegate{
         let markerLbl = UILabel(frame: CGRect(x:(width-40)/2 , y: 0, width: 40, height: 40))
         markerLbl.backgroundColor = .white
         markerLbl.textAlignment = .center
-        markerLbl.font = .systemFont(ofSize: 18, weight: .bold)
+        markerLbl.font = .systemFont(ofSize: 16, weight: .bold)
         //markerImage.addSubview(markerLbl)
         markerLbl.layer.cornerRadius = 20
+    
         
-        if let firstLetter = text.first {
-            markerLbl.text = String(firstLetter)
+       
+      markerLbl.text = text.initials()
            
-        }
+       
        
         //markerLbl.textColor = UIColor(red: 152/255, green: 205/255, blue: 236/255, alpha: 1)
-        markerLbl.textColor = forgroundColor
+    markerLbl.textColor = forgroundColor
         
         // Enable masksToBounds to ensure the rounded corners are applied
         markerLbl.layer.masksToBounds = true
@@ -591,12 +592,26 @@ NavigationMapViewDelegate{
         
         markerLbl.layer.cornerRadius = markerLbl.frame.size.width / 2
         markerLbl.clipsToBounds = true // Ensure the corners are clipped
-        markerLbl.backgroundColor = backgroundColor
+    markerLbl.backgroundColor = UIColor.random()
 
         // Set the border
         markerLbl.layer.borderWidth = 1.0
         
         markerLbl.layer.borderColor =  forgroundColor.cgColor
+      
+      let imageView = UIImageView()
+      imageView.frame = markerLbl.frame
+      imageView.center.x = markerLbl.center.x
+     
+    imageView.layer.cornerRadius = markerLbl.frame.size.width / 2
+    imageView.clipsToBounds = true // Ensure the corners are clipped
+    imageView.layer.borderWidth = 1.0
+    imageView.contentMode = .scaleToFill
+    
+    imageView.layer.borderColor =  forgroundColor.cgColor
+    imageView.loadImage(from: profileUrl)
+      
+      view.addSubview(imageView)
         
         
         let lbl = UILabel(frame:CGRectMake(0, 40, width, height))
@@ -928,4 +943,49 @@ NavigationMapViewDelegate{
     
     
     
+}
+extension UIImageView {
+    
+    func loadImage(from url: URL) {
+        // Create a background task to download the image
+        DispatchQueue.global().async { [weak self] in
+            // Fetch the image data from the URL
+            if let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
+                DispatchQueue.main.async {
+                    // Update the UIImageView with the downloaded image on the main thread
+                    self?.image = image
+                }
+            }
+        }
+    }
+    
+    func loadImage(from urlString: String) {
+        // Convert the string URL into a URL object
+        if let url = URL(string: urlString) {
+            loadImage(from: url)
+        }
+    }
+}
+
+extension UIColor {
+    static func random() -> UIColor {
+        return UIColor(
+            red: CGFloat(arc4random_uniform(256)) / 255.0,
+            green: CGFloat(arc4random_uniform(256)) / 255.0,
+            blue: CGFloat(arc4random_uniform(256)) / 255.0,
+            alpha: 1.0
+        )
+    }
+}
+
+extension String {
+    func initials() -> String {
+        // Split the string by spaces
+        let words = self.components(separatedBy: " ")
+        
+        // Map each word to its first letter and join them
+        let initials = words.compactMap { $0.first?.uppercased() }.joined()
+        
+        return initials
+    }
 }
