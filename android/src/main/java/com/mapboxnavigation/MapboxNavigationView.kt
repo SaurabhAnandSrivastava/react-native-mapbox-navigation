@@ -107,6 +107,13 @@ import com.mapbox.navigation.base.options.PredictiveCacheNavigationOptions
 import com.mapbox.navigation.base.options.PredictiveCacheOptions
 import com.mapbox.navigation.ui.maps.PredictiveCacheController
 
+import com.bumptech.glide.Glide
+import com.bumptech.glide.RequestBuilder
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.GlideException
+import kotlin.random.Random
+import android.content.res.ColorStateList
+
 
 
 
@@ -119,12 +126,13 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
   }
 
 
-  data class Driver(
+data class Driver(
     var deviceId: String ="",
     var id: String = "",
     var location: Point? = null,
     var eventId: String = "",
-    var name: String = ""
+    var name: String = "",
+    var image: String = ""
   )
 
   private var origin: Point? = null
@@ -993,10 +1001,12 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
     this.waypoints.addAll(waypoints)
 
   }
+  fun getRandomColor(): Int {
+    val random = Random
+    return Color.argb(255, random.nextInt(256), random.nextInt(256), random.nextInt(256))
+  }
 
-  fun updateDriversLocation(value: ReadableArray?) {
-
-
+ fun updateDriversLocation(value: ReadableArray?) {
 
     if(value!=null) {
       value!!.toArrayList().mapNotNull { item ->
@@ -1006,6 +1016,7 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
         val id = map?.get("id") as String
         val eventId = map?.get("eventId") as String
         val name = map?.get("name") as String
+        val imageUrl = map?.get("profile") as String
         val latitude = coordinate?.get("lat") as Double
         val longitude = coordinate?.get("lon") as Double
 
@@ -1015,7 +1026,8 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
             eventId = eventId,
             id = id.toString(),
             name = name.toString(),
-            location = Point.fromLngLat(longitude, latitude)
+            location = Point.fromLngLat(longitude, latitude),
+            image = imageUrl
           ))
         } else {
           null
@@ -1034,13 +1046,21 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
             if (isDarkMode) {
               bg.setBackgroundResource(R.drawable.driver_thumb_bg_dark)
               indexWay.setTextColor(Color.parseColor("#ffffff"))
+              imageContainer.setCardBackgroundColor(getRandomColor())
               nameWay.setTextColor(Color.parseColor("#ffffff"))
             } else {
               bg.setBackgroundResource(R.drawable.driver_thumb_bg)
+              imageContainer.setCardBackgroundColor(getRandomColor())
               indexWay.setTextColor(Color.parseColor("#000000"))
               nameWay.setTextColor(Color.parseColor("#000000"))
             }
+
             nameWay.text = driver.name.toString()
+
+            indexWay.text = driver.name.split(" ").mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
+
+            Glide.with(thumbImage).load("${driver.image}?name=${driver.name}").into(thumbImage)
+
           }
 
 
@@ -1063,7 +1083,7 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
               thumb.root,
               viewAnnotationOptions
             )
-        
+
 
 //          val annotationManager = binding.mapView.annotations.createPointAnnotationManager()
 //          val pointAnnotationOptions = PointAnnotationOptions()
