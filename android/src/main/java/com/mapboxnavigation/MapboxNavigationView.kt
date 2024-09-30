@@ -834,7 +834,7 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
     mapboxNavigation.setNavigationRoutes(routes)
   }
 
-    mapboxNavigation.setRerouteEnabled(false)
+    mapboxNavigation.setRerouteEnabled(true)
 
     coordinatesList.forEachIndexed { index, point ->
 
@@ -920,7 +920,7 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
       mapboxNavigation.registerArrivalObserver(arrivalObserver)
       mapboxNavigation.registerRouteProgressObserver(routeProgressObserver)
       mapboxNavigation.registerVoiceInstructionsObserver(voiceInstructionsObserver)
-      mapboxNavigation.setRerouteEnabled(false)
+      mapboxNavigation.setRerouteEnabled(true)
     }
     // Create a list of coordinates that includes origin, destination
 

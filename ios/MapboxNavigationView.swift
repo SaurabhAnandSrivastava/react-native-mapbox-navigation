@@ -808,7 +808,7 @@ NavigationMapViewDelegate{
     
     // MARK: - Route data source
     func navigationViewController(_ navigationViewController: NavigationViewController, shouldRerouteFrom location: CLLocation) -> Bool{
-        return false
+      return true
     }
     
     // MARK: - Polyline Styling delegates
