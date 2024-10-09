@@ -125,7 +125,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     private const val BUTTON_ANIMATION_DURATION = 1500L
   }
 
-
+// used for drivers 
 data class Driver(
     var deviceId: String ="",
     var id: String = "",
@@ -535,6 +535,10 @@ data class Driver(
     }
   }
 
+/**
+   * Program entry point.
+   */
+
   @SuppressLint("MissingPermission")
   fun onCreate() {
     if (origin == null || destination == null) {
@@ -555,6 +559,11 @@ data class Driver(
           .build()
       )
     }
+
+
+    /**
+   * Predictive cache used for offline navigation.
+   */
 
     val predictiveCacheLocationOptions = PredictiveCacheLocationOptions.Builder()
       .currentLocationRadiusInMeters(1000)
@@ -715,6 +724,9 @@ data class Driver(
 
   }
 
+/**
+   * called before the view distroyed
+   */
   private fun onDestroy() {
     maneuverApi.cancel()
     routeLineApi.cancel()
@@ -726,6 +738,9 @@ data class Driver(
     predictiveCacheController?.onDestroy()
   }
 
+/**
+   * navigation initialization
+   */
   private fun initNavigation() {
     // initialize location puck
     binding.mapView.location.apply {
@@ -786,6 +801,9 @@ data class Driver(
 //    view.requestLayout()
 //  }
 
+/**
+   * used for find route with the provided stops 
+   */
   private fun findRoute(coordinates: List<Point>,indices: List<Int>,names: List<String>) {
     mapboxNavigation.requestRoutes(
       RouteOptions.builder()
@@ -824,6 +842,9 @@ data class Driver(
     )
   }
 
+/**
+   * called when route is ready for navigation.
+   */
   @SuppressLint("MissingPermission")
 private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
   // set routes, where the first route in the list is the primary route that
@@ -834,6 +855,9 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
     mapboxNavigation.setNavigationRoutes(routes)
   }
 
+/**
+   * set true for Rerouting
+   */
     mapboxNavigation.setRerouteEnabled(true)
 
     coordinatesList.forEachIndexed { index, point ->
@@ -1006,6 +1030,9 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
     return Color.argb(255, random.nextInt(256), random.nextInt(256), random.nextInt(256))
   }
 
+/**
+* used for updating drivers marker on the map
+*/
  fun updateDriversLocation(value: ReadableArray?) {
 
     if(value!=null) {
@@ -1107,6 +1134,9 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
 
   }
 
+/**
+* used for set waypoints.
+*/
   fun setStops(value: ReadableArray?){
 
     if(value!=null) {
@@ -1129,6 +1159,9 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
     }
   }
 
+/**
+*used for showing preview mode.
+*/
   fun setIsPreview(value: Boolean){
     this.isPreview = value
   }
