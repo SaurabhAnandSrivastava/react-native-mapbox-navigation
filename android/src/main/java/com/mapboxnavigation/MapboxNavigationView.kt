@@ -125,7 +125,7 @@ class MapboxNavigationView(private val context: ThemedReactContext): FrameLayout
     private const val BUTTON_ANIMATION_DURATION = 1500L
   }
 
-// used for drivers 
+// used for drivers
 data class Driver(
     var deviceId: String ="",
     var id: String = "",
@@ -802,7 +802,7 @@ data class Driver(
 //  }
 
 /**
-   * used for find route with the provided stops 
+   * used for find route with the provided stops
    */
   private fun findRoute(coordinates: List<Point>,indices: List<Int>,names: List<String>) {
     mapboxNavigation.requestRoutes(
@@ -810,8 +810,8 @@ data class Driver(
         .applyDefaultNavigationOptions()
         .applyLanguageAndVoiceUnitOptions(context)
         .coordinatesList(coordinates)
-        .waypointIndicesList(indices)
-        .waypointNamesList(names)
+        .waypointIndicesList(listOf(0,coordinates.lastIndex))
+        .waypointNamesList(listOf(names[0],names.last()))
         .language(locale.language)
         .alternatives(false)
         .build(),
@@ -1033,9 +1033,11 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
 /**
 * used for updating drivers marker on the map
 */
- fun updateDriversLocation(value: ReadableArray?) {
+fun updateDriversLocation(value: ReadableArray?) {
 
-    if(value!=null) {
+  try{
+
+    if (value != null) {
       value!!.toArrayList().mapNotNull { item ->
         val map = item as? Map<*, *>
         val coordinate = map?.get("location") as Map<*, *>
@@ -1048,16 +1050,16 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
         val longitude = coordinate?.get("lon") as Double
 
         if (latitude != null && longitude != null) {
-          drivers.add(Driver(
-            deviceId = deviceId.toString(),
-            eventId = eventId,
-            id = id.toString(),
-            name = name.toString(),
-            location = Point.fromLngLat(longitude, latitude),
-            image = imageUrl
-          ))
-        } else {
-          null
+          drivers.add(
+            Driver(
+              deviceId = deviceId.toString(),
+              eventId = eventId,
+              id = id.toString(),
+              name = name.toString(),
+              location = Point.fromLngLat(longitude, latitude),
+              image = imageUrl
+            )
+          )
         }
       }
 
@@ -1084,7 +1086,8 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
 
             nameWay.text = driver.name.toString()
 
-            indexWay.text = driver.name.split(" ").mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
+            indexWay.text = driver.name.split(" ").mapNotNull { it.firstOrNull()?.uppercaseChar() }
+              .joinToString("")
 
             Glide.with(thumbImage).load("${driver.image}").into(thumbImage)
 
@@ -1095,7 +1098,11 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
             val viewAnnotationOptions = ViewAnnotationOptions.Builder()
               .geometry(driver.location!!)
               .build()
-            binding.mapView.viewAnnotationManager.updateViewAnnotation(driverMarkerMapView?.get(driver.deviceId)!!, viewAnnotationOptions)
+            binding.mapView.viewAnnotationManager.updateViewAnnotation(
+              driverMarkerMapView?.get(
+                driver.deviceId
+              )!!, viewAnnotationOptions
+            )
           } else {
             val viewAnnotationOptions = ViewAnnotationOptions.Builder()
               .geometry(driver.location!!)
@@ -1111,29 +1118,16 @@ private fun setRouteAndStartNavigation(routes: List<NavigationRoute>) {
               viewAnnotationOptions
             )
 
-
-//          val annotationManager = binding.mapView.annotations.createPointAnnotationManager()
-//          val pointAnnotationOptions = PointAnnotationOptions()
-//            .withPoint(driver.location!!)
-//            .withTextField("AMar")  // Adding the name for the marker
-//            .withTextSize(15.0)
-//            .withIconImage("marker-icon")
-//            .withTextOffset(listOf(0.0,1.5))  // Adjust the offset of the text from the icon
-//            .withTextAnchor(TextAnchor.TOP)// You can specify an icon
-//
-//          // Add the marker to the map
-//          annotationManager.create(pointAnnotationOptions)
-
-
           }
         }
       }
-
-
     }
+
+  }catch(ex : Exception) {
 
   }
 
+}
 /**
 * used for set waypoints.
 */
